@@ -159,12 +159,24 @@ class SqlText(unicode):
             and not text.endswith(')')):
                 c_d[clause] = c_d[clause][:-1]
                 text = text + ')'
-            if c_d[clause].rstrip()[-1] != ',' and text[0] != ',':
-                text = ', ' + text
+            if clause in self.parenthetical + self.joinable:
+                if c_d[clause].rstrip()[-1] != ',' and text[0] != ',':
+                    text = ', ' + text
         c_d[clause] += text
         return self.reconstruct(c_d, order=self.clause_list)
+    
+    def remove_from_clause(self, clause, text):
+        text = self.__class__(text)
+        c_d = self.clause_dict
+        if text not in c_d[clause]:
+            raise ValueError('substring not found')
+        c_d[clause] = re.sub('(,\s?\s?,)', ',',
+                             re.sub('\s\s+', ' ',
+                                    re.sub(',(?=[^,]*$)', '',
+                                           c_d[clause].replace(text, ''))))
+        return self.reconstruct(c_d)
 
-    def replace(*args, **kwargs):
+    def replace(self, *args, **kwargs):
         return self.__class__(super(SqlText, self).replace(*args, **kwargs))
 
     # stolen from path.py
