@@ -87,28 +87,27 @@ class SqlText(unicode):
 
     @property
     def known_clauses(self):
-        '''A list of all query clauses this class knows about
+        '''A tuple of all query clauses this class knows about
         '''
-        return list(set(reduce(list.__add__,
-                               self.query_orders.values(),
-                               [])))
+        return tuple(set(reduce(list.__add__,
+                                self.query_orders.values(),
+                                [])))
 
     @property
-    def clause_list(self):
-        '''A list of all clauses in the string, orderd by occurence
+    def clauses(self):
+        '''A tuple of all clauses in the string, orderd by occurence
         '''
         test = remove_balanced(unicode(self))
         in_self = [c for c in self.known_clauses
                    if re.search(re_word(c), test)]
-        return sorted(in_self, key=lambda c: test.index(c))
+        return tuple(sorted(in_self, key=lambda c: test.index(c)))
 
-    @property
-    def clause_dict(self):
-        '''Convert the string into a dictionary of clause: text mappings
+    def to_dict(self):
+        '''Convert self into a dictionary of clause: text mappings
         '''
         c_d = {}
         txt = unicode(self)
-        clauses = self.clause_list
+        clauses = self.clauses
         while clauses:
             cls = clauses.pop()
             txt, cls_txt = clause_rsplit(cls, txt)
@@ -118,7 +117,7 @@ class SqlText(unicode):
             c_d[cls] = self.__class__(cls_txt.strip())
         return c_d
 
-    def reconstruct(self, clause_dict, order=None):
+    def from_dict(self, clause_dict, order=None):
         '''Convert the dictionary back into a string.
         if order is None order will be looked up in query_orders
         '''
@@ -134,15 +133,15 @@ class SqlText(unicode):
         '''Add or update clause to text
         '''
         text = self.__class__(text)
-        c_d = self.clause_dict
-        order = self.clause_list if clause in c_d else None
+        c_d = self.to_dict()
+        order = self.clauses if clause in c_d else None
         c_d.update({clause: text})
-        return self.reconstruct(c_d, order=order)
+        return self.from_dict(c_d, order=order)
 
     def delete_clause(self, clause):
-        c_d = self.clause_dict
+        c_d = self.to_dict()
         del c_d[clause]
-        return self.reconstruct(c_d, order=self.clause_list)
+        return self.from_dict(c_d, order=self.clauses)
 
     def append_to_clause(self, clause, text, implicit_join=True):
         '''Append text to clause.
@@ -150,7 +149,7 @@ class SqlText(unicode):
         parenthesise or add a comma if deemed appropriate.
         '''
         text = self.__class__(text)
-        c_d = self.clause_dict
+        c_d = self.to_dict()
         if clause not in c_d:
             raise KeyError(clause)
         if implicit_join:
@@ -163,18 +162,18 @@ class SqlText(unicode):
                 if c_d[clause].rstrip()[-1] != ',' and text[0] != ',':
                     text = ', ' + text
         c_d[clause] += text
-        return self.reconstruct(c_d, order=self.clause_list)
+        return self.from_dict(c_d, order=self.clauses)
     
     def remove_from_clause(self, clause, text):
         text = self.__class__(text)
-        c_d = self.clause_dict
+        c_d = self.to_dict()
         if text not in c_d[clause]:
             raise ValueError('substring not found')
         c_d[clause] = re.sub('(,\s?\s?,)', ',',
                              re.sub('\s\s+', ' ',
                                     re.sub(',(?=[^,]*$)', '',
                                            c_d[clause].replace(text, ''))))
-        return self.reconstruct(c_d)
+        return self.from_dict(c_d, order=self.clauses)
 
     def replace(self, *args, **kwargs):
         return self.__class__(super(SqlText, self).replace(*args, **kwargs))
