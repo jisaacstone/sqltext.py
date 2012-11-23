@@ -39,6 +39,8 @@ def clause_rsplit(clause, text):
     '''
     data = re.split(re_word(clause), text)
     txt = data.pop()
+    while not remove_balanced(txt, check_balance=True):
+        txt = ' '.join((data.pop(), clause, txt))
     return ''.join(data), txt
 
 
@@ -107,12 +109,14 @@ class SqlText(unicode):
         '''
         c_d = {}
         txt = unicode(self)
-        clauses = self.clauses
+        clauses = list(self.clauses)
         while clauses:
             cls = clauses.pop()
             txt, cls_txt = clause_rsplit(cls, txt)
             while not remove_balanced(cls_txt, check_balance=True):
                 txt, cls_append = clause_rsplit(cls, txt)
+                if not txt:
+                    break
                 cls_txt += cls_append
             c_d[cls] = self.__class__(cls_txt.strip())
         return c_d
@@ -161,12 +165,15 @@ class SqlText(unicode):
             if clause in self.parenthetical + self.joinable:
                 if c_d[clause].rstrip()[-1] != ',' and text[0] != ',':
                     text = ', ' + text
+            elif not c_d[clause].endswith(' '):
+                text = ' ' + text.lstrip()
         c_d[clause] += text
         return self.from_dict(c_d, order=self.clauses)
     
     def remove_from_clause(self, clause, text):
-        text = self.__class__(text)
+        text = self.__class__(' '.join(text.split()))
         c_d = self.to_dict()
+        c_d[clause] = ' '.join(c_d[clause].split())
         if text not in c_d[clause]:
             raise ValueError('substring not found')
         c_d[clause] = re.sub('(,\s?\s?,)', ',',
