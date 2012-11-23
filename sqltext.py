@@ -1,11 +1,14 @@
 import re
 
 
-def remove_balanced(txt, check_balance=False):
+class SqlTextException(Exception):
+    pass
+
+
+def remove_balanced(txt, check_balance=True):
     '''Removes all quoted and parenthetical text.
     So that there are no false positive matches when searching for clauses
     '''
-
     r_txt = ''
     ignore = False
     balanced = {'(': ')', '"': '"', "'": "'"}
@@ -25,8 +28,8 @@ def remove_balanced(txt, check_balance=False):
         else:
             ignore = False
 
-    if check_balance:
-        return bool((not waiting) and (not ')' in r_txt))
+    if check_balance and (waiting or ')' in r_txt):
+        return False
     return r_txt
 
 
@@ -39,7 +42,9 @@ def clause_rsplit(clause, text):
     '''
     data = re.split(re_word(clause), text)
     txt = data.pop()
-    while not remove_balanced(txt, check_balance=True):
+    while not remove_balanced(txt):
+        if not data:
+            raise SqlTextException('could not parse SQL string')
         txt = ' '.join((data.pop(), clause, txt))
     return ''.join(data), txt
 
@@ -99,7 +104,7 @@ class SqlText(unicode):
     def clauses(self):
         '''A tuple of all clauses in the string, orderd by occurence
         '''
-        test = remove_balanced(unicode(self))
+        test = remove_balanced(unicode(self), check_balance=False)
         in_self = [c for c in self.known_clauses
                    if re.search(re_word(c), test)]
         return tuple(sorted(in_self, key=lambda c: test.index(c)))
@@ -113,10 +118,10 @@ class SqlText(unicode):
         while clauses:
             cls = clauses.pop()
             txt, cls_txt = clause_rsplit(cls, txt)
-            while not remove_balanced(cls_txt, check_balance=True):
+            while not remove_balanced(cls_txt):
                 txt, cls_append = clause_rsplit(cls, txt)
                 if not txt:
-                    break
+                    raise SqlTextException('could not convert to dict')
                 cls_txt += cls_append
             c_d[cls] = self.__class__(cls_txt.strip())
         return c_d
