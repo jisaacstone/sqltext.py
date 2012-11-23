@@ -1,4 +1,4 @@
-from sqltext import SqlText
+from sqltext import SqlText, SqlTextException
 
 
 example_select = SqlText('''
@@ -27,11 +27,20 @@ def eq(a, b):
     print '.',
 
 
+def errors(fn):
+    try:
+        fn()
+        assert False, "{0} did not error".format(fn)
+    except SqlTextException:
+        print '.',
+
+
 def test_everything():
     test_set()
     test_delete()
     test_insert()
     test_remove()
+    test_errors()
     print 'OK'
 
 
@@ -72,6 +81,13 @@ def test_remove():
         WHERE updated > datetime('now')
         ''')
 
+
+def test_errors():
+    def unbalanced():
+        return SqlText('''
+            INSERT INTO tab_file
+            VALUES (''').to_dict()
+    errors(unbalanced) 
 
 if __name__ == '__main__':
     test_everything()
