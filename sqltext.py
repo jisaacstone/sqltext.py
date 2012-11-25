@@ -1,8 +1,22 @@
 import re
+import functools
 
 
 class SqlTextException(Exception):
     pass
+
+
+def returns_sqltext(method):
+    '''Wraps method so result is not unexpectadly downgraded to unicode.
+    '''
+    @functools.wraps(method)
+    def wrapped_method(*args, **kwargs):
+        result = method(*args, **kwargs)
+        if isinstance(result, unicode):
+            result = SqlText(result)
+        return result
+
+    return wrapped_method
 
 
 def remove_balanced(txt, check_balance=True):
@@ -91,6 +105,13 @@ class SqlText(unicode):
     parenthetical = [
             'VALUES', 'INSERT'
             ]
+
+    def __getattr__(self, attr):
+        attribute = super(SqlText, self).__getattr__(attr)
+        if hasattr(attribute, '__call__'):
+            method = returns_sqltext(attribute)
+            return method
+        return attribute
 
     @property
     def known_clauses(self):
@@ -192,9 +213,6 @@ class SqlText(unicode):
                                     re.sub(',(?=[^,]*$)', '',
                                            c_d[clause].replace(text, ''))))
         return self.from_dict(c_d, order=self.clauses)
-
-    def replace(self, *args, **kwargs):
-        return self.__class__(super(SqlText, self).replace(*args, **kwargs))
 
     # stolen from path.py
     def __add__(self, more):
