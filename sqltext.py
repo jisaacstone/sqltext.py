@@ -109,6 +109,7 @@ class SqlText(unicode):
     def __getattr__(self, attr):
         attribute = super(SqlText, self).__getattr__(attr)
         if hasattr(attribute, '__call__'):
+            # Ensure string methods such as .replace return SqlText instances
             method = returns_sqltext(attribute)
             return method
         return attribute
@@ -135,20 +136,25 @@ class SqlText(unicode):
         '''
         txt = unicode(self)
         c_d = {}
+        # Ensure any given clauses are in the statement
         for clause in clauses:
             if clause not in self.clauses:
-                if clause not in remove_balanced(txt, check_balance=False):
+                if not re.serch(re_word(clause),
+                                remove_balanced(txt, check_balance=False)):
                     raise SqlTextException('Clause not found')
+                # Ensure the clause will be in self.clauses
                 self.known_clauses = tuple(
-                        list(self.known_clauses.append(clause)))
+                        set(self.known_clauses) + set(clause))
         clauses = list(self.clauses)
         while clauses:
             cls = clauses.pop()
             txt, cls_txt = clause_rsplit(cls, txt)
             while not remove_balanced(cls_txt):
+                # There is an unbalanced quote or paren
+                # It is likely we plit up a substring or quoted text
                 txt, cls_append = clause_rsplit(cls, txt)
                 if not txt:
-                    raise SqlTextException('could not convert to dict')
+                    raise SqlTextException('Could not convert to dict')
                 cls_txt += cls_append
             c_d[cls] = self.__class__(cls_txt.strip())
         return c_d
@@ -170,6 +176,7 @@ class SqlText(unicode):
         '''
         text = self.__class__(text)
         c_d = self.to_dict()
+        # If the clause is new attept to guess the appropriate place
         order = self.clauses if clause in c_d else None
         c_d.update({clause: text})
         return self.from_dict(c_d, order=order)
@@ -189,6 +196,7 @@ class SqlText(unicode):
         if clause not in c_d:
             raise KeyError(clause)
         if implicit_join:
+            # Add/modify commas, perens and spacing if necessary
             if (clause in self.parenthetical
             and c_d[clause].endswith(')')
             and not text.endswith(')')):
@@ -208,9 +216,9 @@ class SqlText(unicode):
         c_d[clause] = ' '.join(c_d[clause].split())
         if text not in c_d[clause]:
             raise ValueError('substring not found')
-        c_d[clause] = re.sub('(,\s?\s?,)', ',',
-                             re.sub('\s\s+', ' ',
-                                    re.sub(',(?=[^,]*$)', '',
+        c_d[clause] = re.sub('(,\s?\s?,)', ',',  # Double comma
+                             re.sub('\s\s+', ' ',  # Trailing comma
+                                    re.sub(',(?=[^,]*$)', '',  # Spacing
                                            c_d[clause].replace(text, ''))))
         return self.from_dict(c_d, order=self.clauses)
 
