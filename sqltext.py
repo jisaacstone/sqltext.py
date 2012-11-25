@@ -139,8 +139,8 @@ class SqlText(unicode):
         # Ensure any given clauses are in the statement
         for clause in clauses:
             if clause not in self.clauses:
-                if not re.serch(re_word(clause),
-                                remove_balanced(txt, check_balance=False)):
+                if not re.search(re_word(clause),
+                                 remove_balanced(txt, check_balance=False)):
                     raise SqlTextException('Clause not found')
                 # Ensure the clause will be in self.clauses
                 self.known_clauses = tuple(
@@ -182,7 +182,7 @@ class SqlText(unicode):
         return self.from_dict(c_d, order=order)
 
     def delete_clause(self, clause):
-        c_d = self.to_dict()
+        c_d = self.to_dict(clause)
         del c_d[clause]
         return self.from_dict(c_d, order=self.clauses)
 
@@ -192,7 +192,7 @@ class SqlText(unicode):
         parenthesise or add a comma if deemed appropriate.
         '''
         text = self.__class__(text)
-        c_d = self.to_dict()
+        c_d = self.to_dict(clause)
         if clause not in c_d:
             raise KeyError(clause)
         if implicit_join:
@@ -212,7 +212,7 @@ class SqlText(unicode):
 
     def remove_from_clause(self, clause, text):
         text = self.__class__(' '.join(text.split()))
-        c_d = self.to_dict()
+        c_d = self.to_dict(clause)
         c_d[clause] = ' '.join(c_d[clause].split())
         if text not in c_d[clause]:
             raise ValueError('substring not found')

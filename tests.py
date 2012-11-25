@@ -89,5 +89,9 @@ def test_errors():
             VALUES (''').to_dict()
     errors(unbalanced) 
 
+    def invlalid_clause():
+        return example_delete.delete_clause('SELECT')
+    errors(invlalid_clause)
+
 if __name__ == '__main__':
     test_everything()
