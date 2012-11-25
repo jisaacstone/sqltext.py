@@ -109,11 +109,17 @@ class SqlText(unicode):
                    if re.search(re_word(c), test)]
         return tuple(sorted(in_self, key=lambda c: test.index(c)))
 
-    def to_dict(self):
+    def to_dict(self, *clauses):
         '''Convert self into a dictionary of clause: text mappings
         '''
-        c_d = {}
         txt = unicode(self)
+        c_d = {}
+        for clause in clauses:
+            if clause not in self.clauses:
+                if clause not in remove_balanced(txt, check_balance=False):
+                    raise SqlTextException('Clause not found')
+                self.known_clauses = tuple(
+                        list(self.known_clauses.append(clause)))
         clauses = list(self.clauses)
         while clauses:
             cls = clauses.pop()
@@ -154,7 +160,7 @@ class SqlText(unicode):
 
     def append_to_clause(self, clause, text, implicit_join=True):
         '''Append text to clause.
-        If implicit_join is true it will place the text within 
+        If implicit_join is true it will place the text within
         parenthesise or add a comma if deemed appropriate.
         '''
         text = self.__class__(text)
@@ -174,7 +180,7 @@ class SqlText(unicode):
                 text = ' ' + text.lstrip()
         c_d[clause] += text
         return self.from_dict(c_d, order=self.clauses)
-    
+
     def remove_from_clause(self, clause, text):
         text = self.__class__(' '.join(text.split()))
         c_d = self.to_dict()
@@ -194,7 +200,7 @@ class SqlText(unicode):
     def __add__(self, more):
         try:
             return self.__class__(super(SqlText, self).__add__(more))
-        except TypeError: # Python bug
+        except TypeError:  # Python bug
             return NotImplemented
 
     def __radd__(self, other):
